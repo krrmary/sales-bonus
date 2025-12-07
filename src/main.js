@@ -92,34 +92,17 @@ function analyzeSalesData(data, options) {
         );
     }
 
-    // 3. Собрать уникальных продавцов из purchase_records
-    const sellerMap = new Map(); // id → статистика
+    // 3. Инициализируем статистику для КАЖДОГО продавца из data.sellers
+    const sellerStats = data.sellers.map(seller => ({
+        id: seller.id,
+        name: `${seller.first_name} ${seller.last_name}`,
+        revenue: 0,
+        profit: 0,
+        sales_count: 0,
+        products_sold: {},
+    }));
 
-    // Проходим по всем записям, чтобы собрать всех продавцов
-    data.purchase_records.forEach((record) => {
-        const sellerId = record.seller_id;
-        if (!sellerId) return;
-
-        if (!sellerMap.has(sellerId)) {
-            // Ищем имя в data.sellers
-            const sellerInfo = data.sellers.find(s => s.id === sellerId);
-            sellerMap.set(sellerId, {
-                id: sellerId,
-                name: sellerInfo
-                    ? `${sellerInfo.first_name} ${sellerInfo.last_name}`
-                    : sellerId, // fallback на ID, если нет в справочнике
-                revenue: 0,
-                profit: 0,
-                sales_count: 0,
-                products_sold: {},
-            });
-        }
-    });
-
-    // Теперь sellerStats — массив всех продавцов из чеков
-    const sellerStats = Array.from(sellerMap.values());
-
-    // 4. Создаём индекс для быстрого доступа
+    // 4. Создаём индекс по id
     const sellerIndex = Object.fromEntries(
         sellerStats.map(stat => [stat.id, stat])
     );
@@ -128,10 +111,14 @@ function analyzeSalesData(data, options) {
         data.products.map(product => [product.sku, product])
     );
 
-    // 5. Агрегация данных
+    // 5. Агрегация: обрабатываем ТОЛЬКО те чеки, где seller_id есть в sellerIndex
     data.purchase_records.forEach((record) => {
         const seller = sellerIndex[record.seller_id];
-        if (!seller) return;
+        if (!seller) {
+            // Продавец из чека не найден в data.sellers — пропускаем
+            // (или можно бросить ошибку, но обычно пропускают)
+            return;
+        }
 
         seller.sales_count += 1;
 
@@ -139,7 +126,6 @@ function analyzeSalesData(data, options) {
             const product = productIndex[item.sku];
             if (!product) return;
 
-            // Рассчитываем и сразу округляем до копеек
             const revenue = Math.round(calculateRevenue(item, product) * 100) / 100;
             const cost = Math.round(product.purchase_price * item.quantity * 100) / 100;
             const profit = Math.round((revenue - cost) * 100) / 100;
