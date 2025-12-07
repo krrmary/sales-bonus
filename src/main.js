@@ -141,13 +141,13 @@ function analyzeSalesData(data, options) {
 
     // 7. Назначение бонусов (в рублях) и топ-10 товаров
     sellerStats.forEach((seller, index) => {
-    seller.bonus = calculateBonus(index, total, seller); 
+        seller.bonus = calculateBonus(index, total, seller);
 
-    seller.top_products = Object.entries(seller.products_sold)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 10)
-        .map(([sku]) => sku);
-});
+        seller.top_products = Object.entries(seller.products_sold)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 10)
+            .map(([sku]) => sku);
+    });
 
     // 8. Формирование итогового отчёта
     return sellerStats.map((seller) => ({
@@ -156,7 +156,7 @@ function analyzeSalesData(data, options) {
         revenue: Number(seller.revenue.toFixed(2)),
         profit: Number(seller.profit.toFixed(2)),
         sales_count: seller.sales_count,
-        top_products: seller.top_products, // массив из 10 SKU
+        top_products: seller.top_products,
         bonus: Number(seller.bonus.toFixed(2)),
     }));
 }
