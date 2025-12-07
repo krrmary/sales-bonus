@@ -7,7 +7,6 @@
 function calculateSimpleRevenue(purchase, _product) {
     const { discount, sale_price, quantity } = purchase;
 
-    // Защита от некорректных значений
     if (
         typeof sale_price !== "number" ||
         typeof quantity !== "number" ||
@@ -16,10 +15,7 @@ function calculateSimpleRevenue(purchase, _product) {
         return 0;
     }
 
-    // Коэффициент для расчёта суммы БЕЗ скидки (т.е. доля от полной цены, которую заплатил клиент)
     const discountFactor = 1 - discount / 100;
-
-    // Выручка = цена × количество × коэффициент (после скидки)
     const revenue = sale_price * quantity * discountFactor;
 
     return revenue;
@@ -30,7 +26,7 @@ function calculateSimpleRevenue(purchase, _product) {
  * @param index порядковый номер в отсортированном массиве
  * @param total общее число продавцов
  * @param seller карточка продавца
- * @returns {number}
+ * @returns {number} — доля бонуса (0.15, 0.10 и т.д.)
  */
 function calculateBonusByProfit(index, total, seller) {
     if (total <= 0 || index < 0 || index >= total) {
@@ -38,13 +34,13 @@ function calculateBonusByProfit(index, total, seller) {
     }
 
     if (index === 0) {
-        return 0.15; // 15% — 1-е место
+        return 0.15;
     } else if (index === 1 || index === 2) {
-        return 0.1; // 10% — 2-е и 3-е места
+        return 0.1;
     } else if (index === total - 1) {
-        return 0; // 0% — последнее место
+        return 0;
     } else {
-        return 0.05; // 5% — все остальные
+        return 0.05;
     }
 }
 
@@ -52,7 +48,15 @@ function calculateBonusByProfit(index, total, seller) {
  * Функция для анализа данных продаж
  * @param data
  * @param options
- * @returns {{seller_id: string, name: string, revenue: number, profit: number, sales_count: number, bonus_rate: number, bonus_amount: number}[]}
+ * @returns {{
+ *   seller_id: string,
+ *   name: string,
+ *   revenue: number,
+ *   profit: number,
+ *   sales_count: number,
+ *   top_products: {sku: string, quantity: number}[],
+ *   bonus: number
+ * }[]}
  */
 function analyzeSalesData(data, options) {
     // 1. Проверка входных данных
@@ -88,13 +92,13 @@ function analyzeSalesData(data, options) {
     const sellerStats = data.sellers.map((seller) => ({
         id: seller.id,
         name: `${seller.first_name} ${seller.last_name}`,
-        revenue: 0, // ← будет увеличиваться на record.total_amount
-        profit: 0, // ← будет рассчитываться по товарам
-        sales_count: 0, // ← +1 за чек
+        revenue: 0,
+        profit: 0,
+        sales_count: 0,
         products_sold: {},
     }));
 
-    // 4. Создание индексов (объектов для быстрого доступа)
+    // 4. Создание индексов
     const sellerIndex = Object.fromEntries(
         sellerStats.map((stat) => [stat.id, stat])
     );
@@ -108,7 +112,6 @@ function analyzeSalesData(data, options) {
         if (!seller) return;
 
         seller.sales_count += 1;
-        seller.revenue += record.total_amount;
 
         record.items.forEach((item) => {
             const product = productIndex[item.sku];
@@ -118,9 +121,10 @@ function analyzeSalesData(data, options) {
             const revenue = calculateRevenue(item, product);
             const profit = revenue - cost;
 
-            seller.profit += profit;
+            seller.revenue += revenue;   // реальная выручка (после скидки)
+            seller.profit += profit;     // прибыль
 
-            // Увеличить счётчик числа проданных товаров
+            // Накопление количества проданного товара
             if (!seller.products_sold[item.sku]) {
                 seller.products_sold[item.sku] = 0;
             }
@@ -129,28 +133,28 @@ function analyzeSalesData(data, options) {
     });
 
     // 6. Сортировка по прибыли
-    const sortedSellers = sellerStats.sort((a, b) => b.profit - a.profit);
-    const total = sortedSellers.length;
+    sellerStats.sort((a, b) => b.profit - a.profit);
+    const total = sellerStats.length;
 
+    // 7. Назначение бонусов (в рублях) и топ-10 товаров
     sellerStats.forEach((seller, index) => {
-        // 1. Считаем бонус
         const bonusRate = calculateBonus(index, total, seller);
-        seller.bonus = seller.profit * bonusRate; // ← здесь рубли
+        seller.bonus = seller.profit * bonusRate; // бонус в рублях
 
-        // 2. Формируем топ-10 проданных товаров — СТРОГО ПО ТЗ
         seller.top_products = Object.entries(seller.products_sold)
             .map(([sku, quantity]) => ({ sku, quantity }))
             .sort((a, b) => b.quantity - a.quantity)
             .slice(0, 10);
     });
 
+    // 8. Формирование итогового отчёта
     return sellerStats.map((seller) => ({
         seller_id: seller.id,
         name: seller.name,
-        revenue: +seller.revenue.toFixed(2),
-        profit: +seller.profit.toFixed(2),
+        revenue: Number(seller.revenue.toFixed(2)),
+        profit: Number(seller.profit.toFixed(2)),
         sales_count: seller.sales_count,
         top_products: seller.top_products,
-        bonus: +seller.bonus.toFixed(2),
+        bonus: Number(seller.bonus.toFixed(2)),
     }));
 }
