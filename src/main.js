@@ -92,25 +92,43 @@ function analyzeSalesData(data, options) {
         );
     }
 
-    // 3. Подготовка промежуточной статистики
-    const sellerStats = data.sellers.map((seller) => ({
-        id: seller.id,
-        name: `${seller.first_name} ${seller.last_name}`,
-        revenue: 0,
-        profit: 0,
-        sales_count: 0,
-        products_sold: {},
-    }));
+    // 3. Собрать уникальных продавцов из purchase_records
+    const sellerMap = new Map(); // id → статистика
 
-    // 4. Создание индексов
+    // Проходим по всем записям, чтобы собрать всех продавцов
+    data.purchase_records.forEach((record) => {
+        const sellerId = record.seller_id;
+        if (!sellerId) return;
+
+        if (!sellerMap.has(sellerId)) {
+            // Ищем имя в data.sellers
+            const sellerInfo = data.sellers.find(s => s.id === sellerId);
+            sellerMap.set(sellerId, {
+                id: sellerId,
+                name: sellerInfo
+                    ? `${sellerInfo.first_name} ${sellerInfo.last_name}`
+                    : sellerId, // fallback на ID, если нет в справочнике
+                revenue: 0,
+                profit: 0,
+                sales_count: 0,
+                products_sold: {},
+            });
+        }
+    });
+
+    // Теперь sellerStats — массив всех продавцов из чеков
+    const sellerStats = Array.from(sellerMap.values());
+
+    // 4. Создаём индекс для быстрого доступа
     const sellerIndex = Object.fromEntries(
-        sellerStats.map((stat) => [stat.id, stat])
-    );
-    const productIndex = Object.fromEntries(
-        data.products.map((product) => [product.sku, product])
+        sellerStats.map(stat => [stat.id, stat])
     );
 
-    // 5. Агрегация: перебор чеков и товаров
+    const productIndex = Object.fromEntries(
+        data.products.map(product => [product.sku, product])
+    );
+
+    // 5. Агрегация данных
     data.purchase_records.forEach((record) => {
         const seller = sellerIndex[record.seller_id];
         if (!seller) return;
@@ -121,17 +139,15 @@ function analyzeSalesData(data, options) {
             const product = productIndex[item.sku];
             if (!product) return;
 
-            const cost = product.purchase_price * item.quantity;
-            const revenue = calculateRevenue(item, product);
-            const profit = revenue - cost;
+            // Рассчитываем и сразу округляем до копеек
+            const revenue = Math.round(calculateRevenue(item, product) * 100) / 100;
+            const cost = Math.round(product.purchase_price * item.quantity * 100) / 100;
+            const profit = Math.round((revenue - cost) * 100) / 100;
 
             seller.revenue += revenue;
             seller.profit += profit;
 
-            if (!seller.products_sold[item.sku]) {
-                seller.products_sold[item.sku] = 0;
-            }
-            seller.products_sold[item.sku] += item.quantity;
+            seller.products_sold[item.sku] = (seller.products_sold[item.sku] || 0) + item.quantity;
         });
     });
 
