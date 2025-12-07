@@ -18,7 +18,7 @@ function calculateSimpleRevenue(purchase, _product) {
     const discountFactor = 1 - discount / 100;
     const revenue = sale_price * quantity * discountFactor;
 
-    return revenue;
+   return Math.round(revenue * 100) / 100;
 }
 
 /**
