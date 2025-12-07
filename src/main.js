@@ -18,7 +18,7 @@ function calculateSimpleRevenue(purchase, _product) {
     const discountFactor = 1 - discount / 100;
     const revenue = sale_price * quantity * discountFactor;
 
-   return Math.round(revenue * 100) / 100;
+    return Math.round(revenue * 100) / 100;
 }
 
 /**
@@ -153,10 +153,10 @@ function analyzeSalesData(data, options) {
     return sellerStats.map((seller) => ({
         seller_id: seller.id,
         name: seller.name,
-        revenue: Number(seller.revenue.toFixed(2)),
-        profit: Number(seller.profit.toFixed(2)),
+        revenue: Math.round(seller.revenue * 100) / 100,
+        profit: Math.round(seller.profit * 100) / 100,
         sales_count: seller.sales_count,
         top_products: seller.top_products,
-        bonus: Number(seller.bonus.toFixed(2)),
+        bonus: Math.round(seller.bonus * 100) / 100,
     }));
 }
