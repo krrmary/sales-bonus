@@ -26,7 +26,7 @@ function calculateSimpleRevenue(purchase, _product) {
  * @param index порядковый номер в отсортированном массиве
  * @param total общее число продавцов
  * @param seller карточка продавца
- * @returns {number} — доля бонуса (0.15, 0.10 и т.д.)
+ * @returns {number} — доля бонуса
  */
 function calculateBonusByProfit(index, total, seller) {
     if (total <= 0 || index < 0 || index >= total) {
@@ -54,7 +54,7 @@ function calculateBonusByProfit(index, total, seller) {
  *   revenue: number,
  *   profit: number,
  *   sales_count: number,
- *   top_products: {sku: string, quantity: number}[],
+ *   top_products: any[],
  *   bonus: number
  * }[]}
  */
@@ -121,10 +121,9 @@ function analyzeSalesData(data, options) {
             const revenue = calculateRevenue(item, product);
             const profit = revenue - cost;
 
-            seller.revenue += revenue;   // реальная выручка (после скидки)
-            seller.profit += profit;     // прибыль
+            seller.revenue += revenue;
+            seller.profit += profit;
 
-            // Накопление количества проданного товара
             if (!seller.products_sold[item.sku]) {
                 seller.products_sold[item.sku] = 0;
             }
@@ -139,12 +138,13 @@ function analyzeSalesData(data, options) {
     // 7. Назначение бонусов (в рублях) и топ-10 товаров
     sellerStats.forEach((seller, index) => {
         const bonusRate = calculateBonus(index, total, seller);
-        seller.bonus = seller.profit * bonusRate; // бонус в рублях
+        seller.bonus = seller.profit * bonusRate;
 
         seller.top_products = Object.entries(seller.products_sold)
             .map(([sku, quantity]) => ({ sku, quantity }))
             .sort((a, b) => b.quantity - a.quantity)
-            .slice(0, 10);
+            .slice(0, 10)
+            .map(({ sku }) => sku); // ← только SKU, как в таблице (Array(10))
     });
 
     // 8. Формирование итогового отчёта
@@ -154,7 +154,7 @@ function analyzeSalesData(data, options) {
         revenue: Number(seller.revenue.toFixed(2)),
         profit: Number(seller.profit.toFixed(2)),
         sales_count: seller.sales_count,
-        top_products: seller.top_products,
+        top_products: seller.top_products, // массив из 10 SKU
         bonus: Number(seller.bonus.toFixed(2)),
     }));
 }
