@@ -33,15 +33,19 @@ function calculateBonusByProfit(index, total, seller) {
         return 0;
     }
 
+    let rate;
     if (index === 0) {
-        return 0.15;
+        rate = 0.15;
     } else if (index === 1 || index === 2) {
-        return 0.1;
+        rate = 0.1;
     } else if (index === total - 1) {
-        return 0;
+        rate = 0;
     } else {
-        return 0.05;
+        rate = 0.05;
     }
+
+    // Возвращаем бонус в рублях!
+    return seller.profit * rate;
 }
 
 /**
@@ -141,10 +145,9 @@ function analyzeSalesData(data, options) {
         seller.bonus = seller.profit * bonusRate;
 
         seller.top_products = Object.entries(seller.products_sold)
-            .map(([sku, quantity]) => ({ sku, quantity }))
-            .sort((a, b) => b.quantity - a.quantity)
-            .slice(0, 10)
-            .map(({ sku }) => sku); // ← только SKU, как в таблице (Array(10))
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10)
+    .map(([sku]) => sku); 
     });
 
     // 8. Формирование итогового отчёта
