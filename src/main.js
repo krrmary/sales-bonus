@@ -5,20 +5,24 @@
  * @returns {number}
  */
 function calculateSimpleRevenue(purchase, _product) {
-    const { discount, sale_price, quantity } = purchase;
+    const {
+        sale_price,
+        quantity,
+        discount = 0
+    } = purchase;
 
     if (
         typeof sale_price !== "number" ||
-        typeof quantity !== "number" ||
-        typeof discount !== "number"
+        typeof quantity !== "number"
     ) {
-        return 0;
+        return { raw: 0, rounded: 0 };
     }
 
     const discountFactor = 1 - discount / 100;
-    const revenue = sale_price * quantity * discountFactor;
+    const rawRevenue = sale_price * quantity * discountFactor;
+    const roundedRevenue = Number(rawRevenue.toFixed(2));
 
-    return Math.round(revenue * 100) / 100;
+    return { raw: rawRevenue, rounded: roundedRevenue };
 }
 
 /**
@@ -116,11 +120,12 @@ function analyzeSalesData(data, options) {
             const product = productIndex[item.sku];
             if (!product) return;
 
-            const revenue = Math.round(calculateRevenue(item, product) * 100) / 100;
-            const cost = Math.round(product.purchase_price * item.quantity * 100) / 100;
-            const profit = Math.round((revenue - cost) * 100) / 100;
+            const { raw, rounded } = calculateRevenue(item, product);
 
-            seller.revenue += revenue;
+            const cost = product.purchase_price * item.quantity;
+            const profit = raw - cost; /
+
+            seller.revenue += rounded; // отчёт использует округлённый revenue
             seller.profit += profit;
 
             seller.products_sold[item.sku] = (seller.products_sold[item.sku] || 0) + item.quantity;
@@ -130,6 +135,7 @@ function analyzeSalesData(data, options) {
     // 6. Сортировка по прибыли (убывание)
     sellerStats.sort((a, b) => b.profit - a.profit);
     const total = sellerStats.length;
+
 
     // 7. Назначение бонусов и top_products
     sellerStats.forEach((seller, index) => {
@@ -146,10 +152,10 @@ function analyzeSalesData(data, options) {
     return sellerStats.map(seller => ({
         seller_id: seller.id,
         name: seller.name,
-        revenue: Math.round(seller.revenue * 100) / 100,
-        profit: Math.round(seller.profit * 100) / 100,
+        revenue: Number(seller.revenue.toFixed(2)),
+        profit: Number(seller.profit.toFixed(2)),
         sales_count: seller.sales_count,
         top_products: seller.top_products,
-        bonus: Math.round(seller.bonus * 100) / 100,
+        bonus: Number(seller.bonus.toFixed(2)),
     }));
 }
